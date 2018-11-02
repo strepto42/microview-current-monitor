@@ -9,16 +9,16 @@
 
 uint16_t 	onDelay=5;		// this is the on delay in milliseconds, if there is no on delay, the erase will be too fast to clean up the screen.
 
-int voltageSensorPin = A1;
+int voltageSensorPin = A1; // not used unless you have a circuit to reduce battery voltage to a scaled 5v
 int voltageSensorValue = 0;
 int currentSensorPin = A0;
 int currentSensorValue = 0;
 float currentConsumed = 0;
-const int numReadings = 25; // number of readings to average over
-float readings[numReadings];      // the readings from the analog input
+const int numReadings = 25;     // number of readings to average over - sync this with INTERVAL below if you like using 1000/INTERVAL
+float readings[numReadings];    // the readings from the analog input
 int index = 0;                  // the index of the current reading
-float total = 0;                  // the running total
-float average = 0;                // the average
+float total = 0;                // the running total
+float average = 0;              // the average
 float currentValue = 0;
 float maxCurrentValue = 0;
 unsigned long timeNow = 0;
@@ -26,19 +26,20 @@ unsigned long lastTime = 0;
 unsigned long lastRotated = millis();
 int currentDisplay = 1;
 
-#define INTERVAL 40 // refresh rate in millis
-#define ROTATION_INTERVAL 3000 // display rotation interval in millis
+#define INTERVAL 40             // refresh rate in millis. 40 = 25hz update rate
+#define ROTATION_INTERVAL 3000  // display rotation interval in millis
 
 void setup() {
   for (int thisReading = 0; thisReading < numReadings; thisReading++)
     readings[thisReading] = 0;
-	uView.begin();		// begin of MicroView
-	uView.clear(ALL);	// erase hardware memory inside the OLED controller
-	uView.display();	// display the content in the buffer memory, by default it is the MicroView logo
+	uView.begin();		  // begin of MicroView
+	uView.clear(ALL);	  // erase hardware memory inside the OLED controller
+	uView.display();	  // display the content in the buffer memory, by default it is the MicroView logo
 	delay(100);
-	uView.clear(PAGE);	// erase the memory buffer, when next uView.display() is called, the OLED will be cleared.
+	uView.clear(PAGE);  // erase the memory buffer, when next uView.display() is called, the OLED will be cleared.
 }
 
+// display string with float value
 void formatPrintF( char *leftStr, float var1, char *rightStr) {
   String s = leftStr;
   s = s + var1;
@@ -46,6 +47,7 @@ void formatPrintF( char *leftStr, float var1, char *rightStr) {
 	uView.print(s);
 }
 
+// display string with int value
 void formatPrintI( char *leftStr, int var1, char *rightStr) {
   String s = leftStr;
   s = s + var1;
@@ -65,7 +67,12 @@ float analogToVolts(int sensorValue) {
 
 float analogToAmps(int sensorValue) {
   // Data processing: 510-raw data from analogRead when the input is 0; 5-5v; the first 0.04-0.04V/A(sensitivity); the second 0.04-offset val;
-  return (sensorValue - 510) * 5.0 / 1024.0 / 0.04 - 2.11;
+//  return (sensorValue - 510) * 5.0 / 1024.0 / 0.04 - 1.92;
+  float amps = (sensorValue - 526) * 5.0 / 1024.0 / 0.04;
+  if (amps < 0.15 && amps > -0.15)
+    return 0.0;
+  else
+    return amps;
 }
 
 void loop() {
@@ -110,9 +117,10 @@ void rotateDisplay() {
     currentDisplay++;
     lastRotated = rightNow;
   }
-  if (currentDisplay > 3) currentDisplay = 1;
+  if (currentDisplay > 3) currentDisplay = 1; // change to > 2 to disable raw sensor display screen
 }
 
+// current, max current, watts (estimated) and mAh
 void display1() {
 	uView.clear(PAGE);
 	uView.setFontType(1);
@@ -137,6 +145,7 @@ void display1() {
 	uView.display();
 }
 
+// current and mAh only
 void display2() {
 	uView.clear(PAGE);
 	uView.setFontType(2);
@@ -156,11 +165,11 @@ void display2() {
 
 }
 
+// raw sensor display
 void display3() {
 	uView.clear(PAGE);
 	uView.setFontType(3);
 	uView.setCursor(0,0);
-  formatPrintI("", currentValue, "A");
+  formatPrintI("", currentSensorValue, "A");
 	uView.display();
-
 }
